@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Posts e Comentários</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <style>
+        /* Estilos Gerais */
+        body {
+            background-color: #f5f5f5;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .btn {
+            background-color: #add8e6;
+            border: none;
+            color: #000;
+            padding: 12px 18px;
+            font-size: 16px;
+            margin: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5);
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #87ceeb;
+            transform: scale(1.05);
+        }
+
+        .btn:active {
+            opacity: 0.8;
+        }
+
+        .post {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background-color: #ffffff;
+            margin-bottom: 15px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+        }
+
+        .comments {
+            border: 1.5px solid  #ddd;
+            border-radius: 8px;
+            margin-top: 15px;
+            padding: 10px;
+            border-left: 6px solid #87ceeb;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+            display: none;
+            visibility: hidden;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5);
+        }
+
+        .comment {
+            border: 1.5px solid  #ddd;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #fff;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5);
+        }
+
+        #loading {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background: rgba(255, 255, 255, 0.7);
+            z-index: 1000;
+            display: none;
+        }
+
+        #loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            margin: -25px 0 0 -25px;
+            border: 5px solid #ccc;
+            border-top-color: #333;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading"></div>
+
+    <button id="loadAllCommentsBtn" class="btn">Carregar Todos os Comentários</button>
+    <button id="minimizeAllCommentsBtn" class="btn" style="display:none;">Minimizar Todos os Comentários</button>
+
+    <div id="postsContainer"></div>
+
+    <script>
+        $(document).ready(function() {
+            $(document).ajaxStart(function() {
+                $('#loading').show();
+            }).ajaxStop(function() {
+                $('#loading').hide();
+            });
+
+            function loadPosts() {
+                $.ajax({
+                    url: 'https://jsonplaceholder.typicode.com/posts',
+                    method: 'GET',
+                    success: function(posts) {
+                        displayPosts(posts);
+                    },
+                    error: function(error) {
+                        console.error('Erro ao carregar posts:', error);
+                    }
+                });
+            }
+
+            function displayPosts(posts) {
+                var postsContainer = $('#postsContainer');
+                postsContainer.empty();
+
+                posts.forEach(function(post) {
+                    var postElement = $(`
+                        <div class="post">
+                            <p><strong>User ID:</strong> ${post.userId}</p>
+                            <p><strong>ID:</strong> ${post.id}</p>
+                            <p><strong>Título:</strong> ${post.title}</p>
+                            <p><strong>Corpo:</strong> ${post.body}</p>
+                            <button class="btn toggleCommentsBtn" data-post-id="${post.id}">Mostrar Comentários</button>
+                            <div class="comments" id="comments-${post.id}"></div>
+                        </div>
+                    `);
+
+                    postElement.find('.toggleCommentsBtn').on('click', function() {
+                        var postId = $(this).data('post-id');
+                        toggleComments(postId, $(this));
+                    });
+
+                    postsContainer.append(postElement);
+                });
+            }
+
+            function toggleComments(postId, button) {
+                var commentsContainer = $(`#comments-${postId}`);
+
+                if (commentsContainer.is(':empty')) {
+                    loadCommentsForPost(postId, commentsContainer, button);
+                } else {
+                    commentsContainer.toggle();
+                    commentsContainer.css('visibility', commentsContainer.is(':visible') ? 'visible' : 'hidden');
+                    updateButtonText(button, commentsContainer.is(':visible'));
+                }
+            }
+
+            function loadCommentsForPost(postId, commentsContainer, button) {
+                $('#loading').show();
+
+                fetch(`https://jsonplaceholder.typicode.com/comments?postId=${postId}`)
+                    .then(response => response.json())
+                    .then(comments => {
+                        displayComments(commentsContainer, comments);
+                        commentsContainer.show();
+                        commentsContainer.css('visibility', 'visible');
+                        updateButtonText(button, true);
+                    })
+                    .catch(error => console.error('Erro ao carregar comentários:', error))
+                    .finally(() => $('#loading').hide());
+            }
+
+            function displayComments(container, comments) {
+                container.empty();
+                comments.forEach(comment => {
+                    container.append(`
+                        <div class="comment">
+                            <p><strong>Nome:</strong> ${comment.name}</p>
+                            <p><strong>Email:</strong> ${comment.email}</p>
+                            <p><strong>Comentário:</strong> ${comment.body}</p>
+                        </div>
+                    `);
+                });
+            }
+
+            function updateButtonText(button, isVisible) {
+                button.text(isVisible ? 'Minimizar Comentários' : 'Mostrar Comentários');
+            }
+
+            function loadAllComments() {
+                $('#loading').show();
+
+                fetch('https://jsonplaceholder.typicode.com/comments')
+                    .then(response => response.json())
+                    .then(comments => {
+                        var commentsByPostId = groupCommentsByPostId(comments);
+                        for (var postId in commentsByPostId) {
+                            var commentsContainer = $(`#comments-${postId}`);
+                            displayComments(commentsContainer, commentsByPostId[postId]);
+                            commentsContainer.show();
+                            commentsContainer.css('visibility', 'visible');
+                            updateButtonText($(`button[data-post-id="${postId}"]`), true);
+                        }
+                        $('#loadAllCommentsBtn').hide();
+                        $('#minimizeAllCommentsBtn').show();
+                    })
+                    .catch(error => console.error('Erro ao carregar todos os comentários:', error))
+                    .finally(() => $('#loading').hide());
+            }
+
+            function groupCommentsByPostId(comments) {
+                return comments.reduce((acc, comment) => {
+                    if (!acc[comment.postId]) acc[comment.postId] = [];
+                    acc[comment.postId].push(comment);
+                    return acc;
+                }, {});
+            }
+
+            function minimizeAllComments() {
+                $('.comments').hide().css('visibility', 'hidden');
+                $('.toggleCommentsBtn').text('Mostrar Comentários');
+                $('#minimizeAllCommentsBtn').hide();
+                $('#loadAllCommentsBtn').show();
+            }
+
+            $('#loadAllCommentsBtn').on('click', function() {
+                loadAllComments();
+            });
+
+            $('#minimizeAllCommentsBtn').on('click', function() {
+                minimizeAllComments();
+            });
+
+            loadPosts();
+        });
+    </script>
+</body>
+</html>
